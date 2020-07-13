@@ -2,6 +2,7 @@ import os
 import re
 
 from poetry.semver import Version
+from poetry.utils.patterns import wheel_file_re
 from poetry.version.requirements import Requirement
 
 from .dependency import Dependency
@@ -32,8 +33,8 @@ def dependency_from_pep_508(name):
     name = parts[0].strip()
     if len(parts) > 1:
         rest = parts[1]
-        if ";" in rest:
-            name += ";" + rest.split(";", 1)[1]
+        if " ;" in rest:
+            name += " ;" + rest.split(" ;", 1)[1]
 
     req = Requirement(name)
 
@@ -70,7 +71,7 @@ def dependency_from_pep_508(name):
             link = Link(path_to_url(os.path.normpath(os.path.abspath(link.path))))
         # wheel file
         if link.is_wheel:
-            m = re.match(r"^(?P<namever>(?P<name>.+?)-(?P<ver>\d.*?))", link.filename)
+            m = wheel_file_re.match(link.filename)
             if not m:
                 raise ValueError("Invalid wheel name: {}".format(link.filename))
 

@@ -7,46 +7,84 @@ from collections import namedtuple
 from poetry.utils._compat import decode
 
 
+pattern_formats = {
+    "protocol": r"\w+",
+    "user": r"[a-zA-Z0-9_.-]+",
+    "resource": r"[a-zA-Z0-9_.-]+",
+    "port": r"\d+",
+    "path": r"[\w~.\-/\\]+",
+    "name": r"[\w~.\-]+",
+    "rev": r"[^@#]+",
+}
+
 PATTERNS = [
-    re.compile(
-        r"(git\+)?"
-        r"((?P<protocol>\w+)://)"
-        r"((?P<user>\w+)@)?"
-        r"(?P<resource>[\w.\-]+)"
-        r"(:(?P<port>\d+))?"
-        r"(?P<pathname>(/(?P<owner>\w+)/)"
-        r"((?P<projects>([\w\-/]+)/)?(?P<name>[\w\-]+)(\.git|/)?)?)"
-        r"([@#](?P<rev>[^@#]+))?"
-        r"$"
-    ),
     re.compile(
         r"^(git\+)?"
         r"(?P<protocol>https?|git|ssh|rsync|file)://"
-        r"(?:(?P<user>.+)@)*"
-        r"(?P<resource>[a-z0-9_.-]*)"
-        r"(:?P<port>[\d]+)?"
-        r"(?P<pathname>[:/]((?P<owner>[\w\-]+)/(?P<projects>([\w\-/]+)/)?)?"
-        r"((?P<name>[\w\-.]+?)(\.git|/)?)?)"
-        r"([@#](?P<rev>[^@#]+))?"
-        r"$"
+        r"(?:(?P<user>{user})@)?"
+        r"(?P<resource>{resource})?"
+        r"(:(?P<port>{port}))?"
+        r"(?P<pathname>[:/\\]({path}[/\\])?"
+        r"((?P<name>{name}?)(\.git|[/\\])?)?)"
+        r"([@#](?P<rev>{rev}))?"
+        r"$".format(
+            user=pattern_formats["user"],
+            resource=pattern_formats["resource"],
+            port=pattern_formats["port"],
+            path=pattern_formats["path"],
+            name=pattern_formats["name"],
+            rev=pattern_formats["rev"],
+        )
     ),
     re.compile(
-        r"^(?:(?P<user>.+)@)*"
-        r"(?P<resource>[a-z0-9_.-]*)[:]*"
-        r"(?P<port>[\d]+)?"
-        r"(?P<pathname>/?(?P<owner>.+)/(?P<projects>([\w\-/]+)/)?(?P<name>.+).git)"
-        r"([@#](?P<rev>[^@#]+))?"
-        r"$"
+        r"(git\+)?"
+        r"((?P<protocol>{protocol})://)"
+        r"(?:(?P<user>{user})@)?"
+        r"(?P<resource>{resource}:?)"
+        r"(:(?P<port>{port}))?"
+        r"(?P<pathname>({path})"
+        r"(?P<name>{name})(\.git|/)?)"
+        r"([@#](?P<rev>{rev}))?"
+        r"$".format(
+            protocol=pattern_formats["protocol"],
+            user=pattern_formats["user"],
+            resource=pattern_formats["resource"],
+            port=pattern_formats["port"],
+            path=pattern_formats["path"],
+            name=pattern_formats["name"],
+            rev=pattern_formats["rev"],
+        )
     ),
     re.compile(
-        r"((?P<user>\w+)@)?"
-        r"(?P<resource>[\w.\-]+)"
-        r"[:/]{1,2}"
-        r"(?P<pathname>((?P<owner>\w+)/)?"
-        r"(?P<projects>([\w\-/]+)/)?"
-        r"((?P<name>[\w\-]+)(\.git|/)?)?)"
-        r"([@#](?P<rev>[^@#]+))?"
-        r"$"
+        r"^(?:(?P<user>{user})@)?"
+        r"(?P<resource>{resource})"
+        r"(:(?P<port>{port}))?"
+        r"(?P<pathname>([:/]{path}/)"
+        r"(?P<name>{name})(\.git|/)?)"
+        r"([@#](?P<rev>{rev}))?"
+        r"$".format(
+            user=pattern_formats["user"],
+            resource=pattern_formats["resource"],
+            port=pattern_formats["port"],
+            path=pattern_formats["path"],
+            name=pattern_formats["name"],
+            rev=pattern_formats["rev"],
+        )
+    ),
+    re.compile(
+        r"((?P<user>{user})@)?"
+        r"(?P<resource>{resource})"
+        r"[:/]{{1,2}}"
+        r"(?P<pathname>({path})"
+        r"(?P<name>{name})(\.git|/)?)"
+        r"([@#](?P<rev>{rev}))?"
+        r"$".format(
+            user=pattern_formats["user"],
+            resource=pattern_formats["resource"],
+            path=pattern_formats["path"],
+            name=pattern_formats["name"],
+            rev=pattern_formats["rev"],
+        )
     ),
 ]
 
@@ -159,7 +197,7 @@ class Git:
         return self._config
 
     def clone(self, repository, dest):  # type: (...) -> str
-        return self.run("clone", repository, str(dest))
+        return self.run("clone", "--recurse-submodules", repository, str(dest))
 
     def checkout(self, rev, folder=None):  # type: (...) -> str
         args = []
@@ -191,7 +229,9 @@ class Git:
                 folder.as_posix(),
             ]
 
-        args += ["rev-parse", rev]
+        # We need "^{commit}" to ensure that the commit SHA of the commit the
+        # tag points to is returned, even in the case of annotated tags.
+        args += ["rev-parse", rev + "^{commit}"]
 
         return self.run(*args)
 

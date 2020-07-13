@@ -220,8 +220,8 @@ class LegacyRepository(PyPiRepository):
 
         return "{scheme}://{username}:{password}@{netloc}{path}".format(
             scheme=parsed.scheme,
-            username=quote(self._auth.auth.username),
-            password=quote(self._auth.auth.password),
+            username=quote(self._auth.auth.username, safe=""),
+            password=quote(self._auth.auth.password, safe=""),
             netloc=parsed.netloc,
             path=parsed.path,
         )
@@ -269,6 +269,8 @@ class LegacyRepository(PyPiRepository):
 
         for version in versions:
             package = Package(name, version)
+            package.source_type = "legacy"
+            package.source_reference = self.name
             package.source_url = self._url
 
             if extras is not None:
@@ -313,6 +315,7 @@ class LegacyRepository(PyPiRepository):
             if release_info["requires_python"]:
                 package.python_versions = release_info["requires_python"]
 
+            package.source_type = "legacy"
             package.source_url = self._url
             package.source_reference = self.name
 

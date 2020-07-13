@@ -5,6 +5,7 @@ import re
 
 from contextlib import contextmanager
 from typing import Union
+from unicodedata import normalize
 from warnings import warn
 
 from poetry.semver import Version
@@ -160,7 +161,13 @@ class Package(object):
         if not self._authors:
             return {"name": None, "email": None}
 
-        m = AUTHOR_REGEX.match(self._authors[0])
+        m = AUTHOR_REGEX.match(normalize("NFC", self._authors[0]))
+
+        if m is None:
+            raise ValueError(
+                "Invalid author string. Must be in the format: "
+                "John Smith <john@example.com>"
+            )
 
         name = m.group("name")
         email = m.group("email")
@@ -171,7 +178,13 @@ class Package(object):
         if not self._maintainers:
             return {"name": None, "email": None}
 
-        m = AUTHOR_REGEX.match(self._maintainers[0])
+        m = AUTHOR_REGEX.match(normalize("NFC", self._maintainers[0]))
+
+        if m is None:
+            raise ValueError(
+                "Invalid maintainer string. Must be in the format: "
+                "John Smith <john@example.com>"
+            )
 
         name = m.group("name")
         email = m.group("email")
@@ -332,7 +345,9 @@ class Package(object):
                         develop=constraint.get("develop", True),
                     )
             elif "url" in constraint:
-                dependency = URLDependency(name, constraint["url"], category=category)
+                dependency = URLDependency(
+                    name, constraint["url"], category=category, optional=optional
+                )
             else:
                 version = constraint["version"]
 
@@ -406,6 +421,7 @@ class Package(object):
 
     def clone(self):  # type: () -> Package
         clone = self.__class__(self.pretty_name, self.version)
+        clone.description = self.description
         clone.category = self.category
         clone.optional = self.optional
         clone.python_versions = self.python_versions

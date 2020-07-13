@@ -84,6 +84,9 @@ def test_get_package_information_fallback_read_setup():
 
     package = repo.package("jupyter", "1.0.0")
 
+    assert package.source_type == "legacy"
+    assert package.source_reference == repo.name
+    assert package.source_url == repo.url
     assert package.name == "jupyter"
     assert package.version.text == "1.0.0"
     assert (
@@ -141,6 +144,10 @@ def test_find_packages_no_prereleases():
     packages = repo.find_packages("pyyaml")
 
     assert len(packages) == 1
+
+    assert packages[0].source_type == "legacy"
+    assert packages[0].source_reference == repo.name
+    assert packages[0].source_url == repo.url
 
 
 def test_get_package_information_chooses_correct_distribution():
@@ -267,7 +274,7 @@ def test_get_package_retrieves_packages_with_no_hashes():
 
 
 def test_username_password_special_chars():
-    auth = Auth("http://foo.bar", "user:", "p@ssword")
+    auth = Auth("http://foo.bar", "user:", "/%2Fp@ssword")
     repo = MockRepository(auth=auth)
 
-    assert "http://user%3A:p%40ssword@foo.bar" == repo.authenticated_url
+    assert "http://user%3A:%2F%252Fp%40ssword@foo.bar" == repo.authenticated_url
